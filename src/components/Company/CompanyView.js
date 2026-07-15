@@ -11,7 +11,6 @@ const CompanyView = () => {
   const [tab, setTab] = useState('checkin');
   const [checkinPin, setCheckinPin] = useState('');
   const [showPinInput, setShowPinInput] = useState(false);
-  const [selectedForCheckin, setSelectedForCheckin] = useState(null);
   const { showToast } = useApp();
 
   const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
