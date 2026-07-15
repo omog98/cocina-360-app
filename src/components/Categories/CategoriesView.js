@@ -12,9 +12,10 @@ const CategoriesView = () => {
   const { showToast } = useApp();
 
   // Cargar categorías al iniciar
-  useEffect(() => {
+ useEffect(() => {
     loadCategories();
-  }, []);
+    // eslint-disable-next-line
+}, []);
 
   const loadCategories = async () => {
     try {

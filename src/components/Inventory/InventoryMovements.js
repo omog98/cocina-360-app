@@ -13,10 +13,10 @@ const InventoryMovements = ({ item, onAddMovement, onClose }) => {
   });
 
   // Cargar historial de movimientos
-  useEffect(() => {
+ useEffect(() => {
     loadMovements();
-  }, [item.id]);
-
+    // eslint-disable-next-line
+}, []);
   const loadMovements = async () => {
     try {
       setLoading(true);

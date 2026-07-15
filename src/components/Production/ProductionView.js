@@ -4,7 +4,7 @@ import { useApp } from '../../context/AppContext';
 
 const ProductionView = () => {
   const [products, setProducts] = useState([]);
-  const [inventory, setInventory] = useState([]);
+  const [, setInventory] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
