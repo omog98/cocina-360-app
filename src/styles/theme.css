@@ -1,0 +1,72 @@
+/* COCINA 360 - Tema Oscuro Profesional */
+:root {
+  --primary: #1a73e8;
+  --primary-dark: #1557b0;
+  --primary-light: #4a90d9;
+  --secondary: #303134;
+  --dark: #1a1a1a;
+  --darker: #0d0d0d;
+  --medium: #2d2d2d;
+  --light: #3d3d3d;
+  --text: #e8eaed;
+  --text-secondary: #9aa0a6;
+  --success: #0f9d58;
+  --danger: #ea4335;
+  --warning: #fbbc04;
+  --border: #3d3d3d;
+  --hover: #3d3d3d;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --radius: 8px;
+  --transition: all 0.3s ease;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', 'Roboto', sans-serif;
+  background-color: var(--dark);
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.main-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.view-container {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  background-color: var(--dark);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--darker);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--medium);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--light);
+}

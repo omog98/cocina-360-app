@@ -1,0 +1,78 @@
+.categories-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.category-card {
+  background-color: var(--secondary);
+  border-left: 4px solid var(--primary);
+  border-radius: var(--radius);
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: var(--transition);
+}
+
+.category-card:hover {
+  background-color: var(--medium);
+}
+
+.category-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.category-color {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--text);
+  flex-shrink: 0;
+}
+
+.category-info h3 {
+  font-size: 16px;
+  margin-bottom: 5px;
+}
+
+.category-order {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 3px;
+}
+
+.category-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.color-input {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.color-input input[type="color"] {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  background: none;
+}

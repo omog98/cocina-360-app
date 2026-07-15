@@ -1,0 +1,91 @@
+.header {
+  background-color: var(--darker);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  height: 60px;
+  z-index: 100;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.brand h1 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: 1px;
+}
+
+.brand-subtitle {
+  font-size: 11px;
+  color: var(--text-secondary);
+  display: block;
+}
+
+.header-nav {
+  display: flex;
+  gap: 5px;
+  overflow-x: auto;
+}
+
+.nav-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: 8px 15px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 13px;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.nav-btn:hover {
+  background-color: var(--medium);
+  color: var(--text);
+}
+
+.menu-toggle {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 5px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-name {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.user-role-badge {
+  background-color: var(--primary);
+  color: white;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
