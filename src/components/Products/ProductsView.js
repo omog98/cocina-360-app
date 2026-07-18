@@ -29,7 +29,7 @@ const ProductsView = () => {
     }
   };
 
-  const handleSave = async (product, comboItems, prices) => {
+  const handleSave = async (product, comboItems) => {
     try {
       let savedProduct;
       if (selectedProduct) {
@@ -40,31 +40,6 @@ const ProductsView = () => {
 
       const productId = selectedProduct?.id || savedProduct?.id;
 
-      // Guardar precios por canal
-      if (productId && prices) {
-        for (const channel of ['dine_in', 'takeout', 'delivery']) {
-          if (prices[channel] > 0) {
-            const { data: existing } = await supabase
-              .from('product_prices')
-              .select('id')
-              .eq('product_id', productId)
-              .eq('channel', channel)
-              .single();
-
-            if (existing) {
-              await supabase.from('product_prices').update({ price: prices[channel] }).eq('id', existing.id);
-            } else {
-              await supabase.from('product_prices').insert([{
-                product_id: productId,
-                channel: channel,
-                price: prices[channel]
-              }]);
-            }
-          }
-        }
-      }
-
-      // Guardar combo items
       if (product.is_combo && comboItems && comboItems.length > 0 && productId) {
         await supabase.from('combo_items').delete().eq('combo_id', productId);
         for (const item of comboItems) {
@@ -144,8 +119,6 @@ const ProductsView = () => {
               <th>SKU</th>
               <th>Categoría</th>
               <th>Precio Base</th>
-              <th>Comedor</th>
-              <th>Llevar</th>
               <th>Delivery</th>
               <th>Costo</th>
               <th>Tiempo</th>
@@ -156,7 +129,7 @@ const ProductsView = () => {
           <tbody>
             {filteredProducts.length === 0 ? (
               <tr>
-                <td colSpan="11" className="empty-table">No se encontraron productos</td>
+                <td colSpan="9" className="empty-table">No se encontraron productos</td>
               </tr>
             ) : (
               filteredProducts.map(product => (
@@ -177,10 +150,10 @@ const ProductsView = () => {
                   <td style={{ fontWeight: 'bold' }}>
                     ${product.is_combo ? product.combo_price?.toFixed(2) : product.price?.toFixed(2)}
                   </td>
-                  <td>{product.prices?.dine_in ? '$' + product.prices.dine_in.toFixed(2) : '-'}</td>
-                  <td>{product.prices?.takeout ? '$' + product.prices.takeout.toFixed(2) : '-'}</td>
-                  <td>{product.prices?.delivery ? '$' + product.prices.delivery.toFixed(2) : '-'}</td>
-                  <td>${product.cost?.toFixed(2)}</td>
+                  <td>
+                    {product.delivery_price > 0 ? '$' + product.delivery_price.toFixed(2) : 'Precio base'}
+                  </td>
+                  <td>${product.cost?.toFixed(2) || '0.00'}</td>
                   <td>{product.preparation_time || 10} min</td>
                   <td>
                     <span className={`badge ${product.active ? 'badge-success' : 'badge-danger'}`}>
