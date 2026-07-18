@@ -160,40 +160,64 @@ const OrderView = ({ table, activeOrder, onClose }) => {
   const handleSendToKitchen = async () => {
     try {
       if (newItems.length === 0) { showToast('No hay productos nuevos', 'error'); return; }
-      let newOrderId = null;
-      if (!orderId) {
+      let currentOrderId = orderId;
+      
+      if (!currentOrderId) {
         const order = await salesService.createOrder({
           table_id: table.id, type: 'dine_in',
           customer_name: customerName || 'Mesa ' + table.number,
           subtotal: finalTotal, tax: 0, total: finalTotal,
           status: 'open', payment_status: 'pending'
         });
-        newOrderId = order.id; setOrderId(newOrderId);
-        for (const item of newItems) {
-          const saved = await salesService.addOrderItem({
-            order_id: newOrderId, product_id: item.product_id,
-            product_name: item.product_name, quantity: item.quantity,
-            price: item.price, notes: item.notes || '',
-            status: 'pending', sent_to_kitchen: true
-          });
-          item.id = saved.id; item.sent_to_kitchen = true; item.isNew = false;
-        }
+        currentOrderId = order.id;
+        setOrderId(currentOrderId);
         await salesService.updateTableStatus(table.id, 'occupied');
-      } else {
-        for (const item of newItems) {
+      }
+
+      // Enviar items principales
+      for (const item of newItems) {
+        if (!item.isComboItem) {
           const saved = await salesService.addOrderItem({
-            order_id: orderId, product_id: item.product_id,
+            order_id: currentOrderId, product_id: item.product_id,
             product_name: item.product_name, quantity: item.quantity,
             price: item.price, notes: item.notes || '',
             status: 'pending', sent_to_kitchen: true
           });
           item.id = saved.id; item.sent_to_kitchen = true; item.isNew = false;
         }
-        await salesService.updateOrderTotal(orderId, finalTotal);
+
+        // Si es combo, enviar sus componentes
+        if (item.isCombo) {
+          const { data: comboItems } = await supabase
+            .from('combo_items')
+            .select('*, products:product_id(name)')
+            .eq('combo_id', item.product_id);
+          
+          if (comboItems && comboItems.length > 0) {
+            for (const ci of comboItems) {
+              await salesService.addOrderItem({
+                order_id: currentOrderId,
+                product_id: ci.product_id,
+                product_name: '  └ ' + (ci.products?.name || 'Producto'),
+                quantity: ci.quantity || 1,
+                price: 0,
+                notes: '',
+                status: 'pending',
+                sent_to_kitchen: true
+              });
+            }
+          }
+        }
       }
-      setOrderItems([...orderItems]);
-      const idToDiscount = orderId || newOrderId;
-      if (idToDiscount) { try { await recipeService.discountInventory(idToDiscount); } catch (err) { } }
+
+      // Marcar componentes locales como enviados
+      setOrderItems(prev => prev.map(item => ({ ...item, isNew: false, sent_to_kitchen: true })));
+
+      if (currentOrderId !== orderId) {
+        await salesService.updateOrderTotal(currentOrderId, finalTotal);
+      }
+
+      try { await recipeService.discountInventory(currentOrderId); } catch (err) { }
       showToast('🧾 ' + newItems.length + ' producto(s) enviado(s) a cocina');
     } catch (error) { showToast('Error al enviar', 'error'); }
   };
