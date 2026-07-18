@@ -54,53 +54,56 @@ const OrderView = ({ table, activeOrder, onClose }) => {
   };
 
   const addToOrder = async (product) => {
+    console.log('addToOrder llamado:', product.name, 'is_combo:', product.is_combo, 'id:', product.id);
+    
     const existing = orderItems.find(item => item.product_id === product.id && !item.isComboItem && item.isNew);
     if (existing) {
       setOrderItems(orderItems.map(item =>
         item.product_id === product.id && !item.isComboItem && item.isNew ? { ...item, quantity: item.quantity + 1 } : item
       ));
-    } else {
-      const price = product.is_combo ? (product.combo_price || product.price) : product.price;
-      
-      // Agregar combo principal
-      const newItems = [...orderItems, {
-        product_id: product.id, product_name: (product.is_combo ? '🎉 ' : '') + product.name,
-        price: price, quantity: 1, notes: '', status: 'pending',
-        isNew: true, sent_to_kitchen: false, isPromo: false, isCombo: product.is_combo, isComboItem: false
-      }];
-
-      // Si es combo, cargar sus componentes
-      if (product.is_combo) {
-        console.log('Cargando componentes del combo:', product.id, product.name);
-        const { data: items, error } = await supabase
-          .from('combo_items')
-          .select('*, products:product_id(name)')
-          .eq('combo_id', product.id);
-        
-        console.log('Componentes encontrados:', items, error);
-        
-        if (items && items.length > 0) {
-          for (const item of items) {
-            newItems.push({
-              product_id: item.product_id,
-              product_name: '  └ ' + item.products?.name,
-              price: 0,
-              quantity: item.quantity || 1,
-              notes: '',
-              status: 'pending',
-              isNew: true,
-              sent_to_kitchen: false,
-              isPromo: false,
-              isCombo: false,
-              isComboItem: true,
-              parentComboId: product.id
-            });
-          }
-        }
-      }
-      
-      setOrderItems(newItems);
+      return;
     }
+
+    const price = product.is_combo ? (product.combo_price || product.price) : product.price;
+    
+    const newItems = [...orderItems, {
+      product_id: product.id, product_name: (product.is_combo ? '🎉 ' : '') + product.name,
+      price: price, quantity: 1, notes: '', status: 'pending',
+      isNew: true, sent_to_kitchen: false, isPromo: false, isCombo: product.is_combo, isComboItem: false
+    }];
+
+    if (product.is_combo) {
+      console.log('Buscando componentes para combo:', product.id);
+      const { data: items, error } = await supabase
+        .from('combo_items')
+        .select('*, products:product_id(name)')
+        .eq('combo_id', product.id);
+      
+      console.log('Componentes encontrados:', items, 'Error:', error);
+      
+      if (items && items.length > 0) {
+        for (const item of items) {
+          newItems.push({
+            product_id: item.product_id,
+            product_name: '  └ ' + (item.products?.name || 'Producto'),
+            price: 0,
+            quantity: item.quantity || 1,
+            notes: '',
+            status: 'pending',
+            isNew: true,
+            sent_to_kitchen: false,
+            isPromo: false,
+            isCombo: false,
+            isComboItem: true,
+            parentComboId: product.id
+          });
+        }
+      } else {
+        console.log('NO se encontraron componentes para este combo');
+      }
+    }
+    
+    setOrderItems(newItems);
   };
 
   const updateQuantity = (productId, delta) => {
@@ -114,7 +117,6 @@ const OrderView = ({ table, activeOrder, onClose }) => {
   };
 
   const removeItem = (productId) => {
-    // Si es un combo, eliminar también sus componentes
     const itemToRemove = orderItems.find(item => item.product_id === productId && item.isNew && !item.isComboItem);
     if (itemToRemove && itemToRemove.isCombo) {
       setOrderItems(orderItems.filter(item => 
@@ -296,7 +298,7 @@ const OrderView = ({ table, activeOrder, onClose }) => {
         </div>
         <div className="products-grid">
           {filteredProducts.map(product => (
-            <div key={product.id} className="product-card" onClick={() => addToOrder(product)}>
+            <div key={product.id} className="product-card" onClick={() => { console.log('Click en producto:', product.name); addToOrder(product); }}>
               <div className="product-name">{product.is_combo ? '🎉 ' : ''}{product.name}</div>
               <div className="product-price">${product.is_combo ? (product.combo_price || product.price)?.toFixed(2) : product.price?.toFixed(2)}</div>
             </div>
