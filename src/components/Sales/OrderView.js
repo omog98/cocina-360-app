@@ -223,7 +223,7 @@ const OrderView = ({ table, activeOrder, onClose }) => {
             (config?.business_phone ? '<div>' + config.business_phone + '</div>' : '') +
             (config?.rfc ? '<div>RFC: ' + config.rfc + '</div>' : '') + '</div>' +
             '<div class="line"></div>' +
-            '<div>Fecha: ' + new Date().toLocaleString() + '</div>' +
+            '<div>Fecha: ' + new Date().toLocaleString('es-MX', { timeZone: 'America/Monterrey' }) + '</div>' +
             '<div>Mesa: ' + table.number + ' | ' + (customerName || 'N/A') + '</div>' +
             '<div class="line"></div>' +
             '<table><tr style="border-bottom:2px solid #000"><th>Cant</th><th>Producto</th><th class="right">Total</th></tr>' +
