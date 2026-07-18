@@ -30,12 +30,13 @@ const OrderView = ({ table, activeOrder, onClose }) => {
       setOrderId(activeOrder.id);
       setCustomerName(activeOrder.customer_name || '');
     }
+    // eslint-disable-next-line
   }, []);
 
   const loadProducts = async () => {
     try {
       const data = await productService.getAll();
-      setProducts(data.filter(p => p.active));
+      setProducts(data.filter(p => p.active).map(p => ({...p, isCombo: p.is_combo})));
       const cats = [...new Set(data.map(p => p.categories?.name).filter(Boolean))];
       setCategories(cats);
       const now = new Date().toISOString();
@@ -61,12 +62,12 @@ const OrderView = ({ table, activeOrder, onClose }) => {
       return;
     }
 
-    const price = product.is_combo ? (product.combo_price || product.price) : product.price;
+    const price = product.isCombo ? (product.combo_price || product.price) : product.price;
     
     setOrderItems([...orderItems, {
-      product_id: product.id, product_name: (product.is_combo ? '🎉 ' : '') + product.name,
+      product_id: product.id, product_name: (product.isCombo ? '🎉 ' : '') + product.name,
       price: price, quantity: 1, notes: '', status: 'pending',
-      isNew: true, sent_to_kitchen: false, isPromo: false, isCombo: product.is_combo, isComboItem: false
+      isNew: true, sent_to_kitchen: false, isPromo: false, isCombo: product.isCombo, isComboItem: false
     }]);
   };
 
@@ -155,7 +156,6 @@ const OrderView = ({ table, activeOrder, onClose }) => {
           });
         }
 
-        // Si es combo, enviar sus componentes
         if (item.isCombo) {
           const { data: comboItems } = await supabase
             .from('combo_items')
@@ -178,7 +178,6 @@ const OrderView = ({ table, activeOrder, onClose }) => {
       }
 
       setOrderItems(prev => prev.map(item => ({ ...item, isNew: false, sent_to_kitchen: true })));
-
       try { await recipeService.discountInventory(currentOrderId); } catch (err) { }
       showToast('🧾 Productos enviados a cocina');
     } catch (error) { showToast('Error al enviar', 'error'); }
@@ -209,8 +208,6 @@ const OrderView = ({ table, activeOrder, onClose }) => {
           const fs = config?.font_size || 12;
           const logoWidth = config?.logo_width || 200;
           const logoHTML = config?.logo_url ? '<div style="text-align:center"><img src="' + config.logo_url + '" style="width:' + logoWidth + 'px;margin-bottom:15px" /></div>' : '';
-
-          // Cargar todos los items de la orden para el ticket
           const { data: allItems } = await supabase.from('order_items').select('*').eq('order_id', orderId);
           const ticketItems = allItems || orderItems;
 
@@ -262,8 +259,8 @@ const OrderView = ({ table, activeOrder, onClose }) => {
         <div className="products-grid">
           {filteredProducts.map(product => (
             <div key={product.id} className="product-card" onClick={() => addToOrder(product)}>
-              <div className="product-name">{product.is_combo ? '🎉 ' : ''}{product.name}</div>
-              <div className="product-price">${product.is_combo ? (product.combo_price || product.price)?.toFixed(2) : product.price?.toFixed(2)}</div>
+              <div className="product-name">{product.isCombo ? '🎉 ' : ''}{product.name}</div>
+              <div className="product-price">${product.isCombo ? (product.combo_price || product.price)?.toFixed(2) : product.price?.toFixed(2)}</div>
             </div>
           ))}
         </div>
