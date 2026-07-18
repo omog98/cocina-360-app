@@ -37,11 +37,7 @@ const ComboItemsSelector = ({ productId, onChange }) => {
   const addItem = () => {
     if (!selectedProduct) return;
     const product = products.find(p => p.id === selectedProduct);
-    const newItems = [...items, {
-      product_id: selectedProduct,
-      product_name: product?.name,
-      quantity
-    }];
+    const newItems = [...items, { product_id: selectedProduct, product_name: product?.name, quantity }];
     setItems(newItems);
     onChange(newItems);
     setSelectedProduct('');
@@ -59,14 +55,11 @@ const ComboItemsSelector = ({ productId, onChange }) => {
       <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
         <select className="input" value={selectedProduct} onChange={(e) => setSelectedProduct(e.target.value)} style={{ flex: 1 }}>
           <option value="">Seleccionar producto...</option>
-          {products.map(p => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
+          {products.map(p => (<option key={p.id} value={p.id}>{p.name}</option>))}
         </select>
         <input type="number" className="input" value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value) || 1)} min="1" style={{ width: 60 }} />
         <button type="button" className="btn btn-primary btn-sm" onClick={addItem}>+</button>
       </div>
-
       {items.map((item, i) => (
         <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 10px', background: 'var(--medium)', borderRadius: 5, marginBottom: 3, fontSize: 13 }}>
           <span>{item.quantity}x {item.product_name}</span>
@@ -79,18 +72,10 @@ const ComboItemsSelector = ({ productId, onChange }) => {
 
 const ProductModal = ({ product, onSave, onClose }) => {
   const [form, setForm] = useState({
-    name: '',
-    description: '',
-    price: 0,
-    cost: 0,
-    sku: '',
-    category_id: null,
-    preparation_time: 10,
-    active: true,
-    control_inventory: false,
-    order: 0,
-    is_combo: false,
-    combo_price: 0
+    name: '', description: '', price: 0, cost: 0, sku: '',
+    category_id: null, preparation_time: 10, active: true,
+    control_inventory: false, order: 0, is_combo: false, combo_price: 0,
+    delivery_price: 0
   });
   const [comboItems, setComboItems] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -99,18 +84,12 @@ const ProductModal = ({ product, onSave, onClose }) => {
     loadCategories();
     if (product) {
       setForm({
-        name: product.name || '',
-        description: product.description || '',
-        price: product.price || 0,
-        cost: product.cost || 0,
-        sku: product.sku || '',
-        category_id: product.category_id || null,
-        preparation_time: product.preparation_time || 10,
-        active: product.active ?? true,
-        control_inventory: product.control_inventory || false,
-        order: product.order || 0,
-        is_combo: product.is_combo || false,
-        combo_price: product.combo_price || 0
+        name: product.name || '', description: product.description || '',
+        price: product.price || 0, cost: product.cost || 0, sku: product.sku || '',
+        category_id: product.category_id || null, preparation_time: product.preparation_time || 10,
+        active: product.active ?? true, control_inventory: product.control_inventory || false,
+        order: product.order || 0, is_combo: product.is_combo || false, combo_price: product.combo_price || 0,
+        delivery_price: product.delivery_price || 0
       });
     }
   }, [product]);
@@ -128,19 +107,10 @@ const ProductModal = ({ product, onSave, onClose }) => {
     }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    if (!form.name || form.price < 0) {
-      alert('Nombre y precio son requeridos');
-      return;
-    }
-
-    const dataToSave = {
-      ...form,
-      price: form.is_combo ? form.combo_price : form.price
-    };
-
-    onSave(dataToSave, comboItems);
+    if (!form.name) { alert('El nombre es requerido'); return; }
+    onSave(form, comboItems);
   };
 
   return (
@@ -167,42 +137,44 @@ const ProductModal = ({ product, onSave, onClose }) => {
               <label>Categoría</label>
               <select name="category_id" className="input" value={form.category_id || ''} onChange={handleChange}>
                 <option value="">Sin categoría</option>
-                {categories.map(cat => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
+                {categories.map(cat => (<option key={cat.id} value={cat.id}>{cat.name}</option>))}
               </select>
             </div>
 
             <div className="form-row">
               <div className="form-group">
-                <label>Precio *</label>
+                <label>Precio base * (Comedor y Para Llevar)</label>
                 <input type="number" name="price" className="input" value={form.price} onChange={handleChange} step="0.01" required />
               </div>
+              <div className="form-group">
+                <label>🛵 Precio Delivery</label>
+                <input type="number" name="delivery_price" className="input" value={form.delivery_price || 0} onChange={handleChange} step="0.01" />
+                <p style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 3 }}>Deja en 0 para usar precio base</p>
+              </div>
+            </div>
+
+            <div className="form-row">
               <div className="form-group">
                 <label>Costo</label>
                 <input type="number" name="cost" className="input" value={form.cost} onChange={handleChange} step="0.01" />
               </div>
-            </div>
-
-            <div className="form-row">
               <div className="form-group">
                 <label>SKU</label>
                 <input type="text" name="sku" className="input" value={form.sku} onChange={handleChange} />
               </div>
+            </div>
+
+            <div className="form-row">
               <div className="form-group">
                 <label>Tiempo de preparación (min)</label>
                 <input type="number" name="preparation_time" className="input" value={form.preparation_time} onChange={handleChange} min="1" />
               </div>
-            </div>
-
-            <div className="form-row">
               <div className="form-group">
                 <label>Orden</label>
                 <input type="number" name="order" className="input" value={form.order} onChange={handleChange} />
               </div>
             </div>
 
-            {/* Checkbox de combo */}
             <div className="form-group">
               <label className="checkbox-label">
                 <input type="checkbox" name="is_combo" checked={form.is_combo} onChange={handleChange} />
@@ -210,17 +182,12 @@ const ProductModal = ({ product, onSave, onClose }) => {
               </label>
             </div>
 
-            {/* Si es combo */}
             {form.is_combo && (
               <>
                 <div className="form-group">
                   <label>Precio del combo *</label>
                   <input type="number" name="combo_price" className="input" value={form.combo_price} onChange={handleChange} step="0.01" />
-                  <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 5 }}>
-                    Precio total del combo. Los productos incluidos aparecerán a $0 en la cuenta.
-                  </p>
                 </div>
-
                 <div className="form-group">
                   <label>Productos que incluye el combo</label>
                   <ComboItemsSelector productId={product?.id} onChange={(items) => setComboItems(items)} />
@@ -245,9 +212,7 @@ const ProductModal = ({ product, onSave, onClose }) => {
 
           <div className="modal-footer">
             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancelar</button>
-            <button type="submit" className="btn btn-primary">
-              {product ? '💾 Actualizar' : '💾 Crear Producto'}
-            </button>
+            <button type="submit" className="btn btn-primary">{product ? '💾 Actualizar' : '💾 Crear Producto'}</button>
           </div>
         </form>
       </div>
