@@ -24,6 +24,7 @@ const TakeoutView = ({ delivery = false }) => {
   const [activePromo, setActivePromo] = useState(null);
   const [promos, setPromos] = useState([]);
   const [showPromos, setShowPromos] = useState(false);
+  const [cancelled, setCancelled] = useState(false);
   const { showToast } = useApp();
 
   useEffect(() => {
@@ -33,6 +34,7 @@ const TakeoutView = ({ delivery = false }) => {
   }, []);
 
   const loadActiveOrder = async () => {
+    if (cancelled) return;
     try {
       const type = delivery ? 'delivery' : 'takeout';
       const result = await salesService.getActiveOrderByType(type);
@@ -149,6 +151,7 @@ const TakeoutView = ({ delivery = false }) => {
         }
       }
       setSentToKitchen(true);
+      setCancelled(false);
       try { await recipeService.discountInventory(newOrderId); } catch (err) { }
       showToast('🧾 Pedido #' + finalFolio + ' enviado a cocina. ⏱️ ' + estimatedTime + ' min');
     } catch (error) { showToast('Error al enviar a cocina', 'error'); }
@@ -158,7 +161,7 @@ const TakeoutView = ({ delivery = false }) => {
     try { if (!orderId) { showToast('Primero envía a cocina', 'error'); return; } const paymentMethods = payments.map(p => p.method).join(' + '); await salesService.closeOrder(orderId, { method: paymentMethods, total: finalTotal, tip: tip || 0 }); if (activePromo) { try { await supabase.from('promotions').update({ times_used: (activePromo.times_used || 0) + 1 }).eq('id', activePromo.id); } catch (err) {} } showToast('✅ Pedido cobrado - $' + finalTotal.toFixed(2)); clearOrder(); } catch (error) { showToast('Error al cobrar', 'error'); }
   };
 
-  const clearOrder = () => { setOrderItems([]); setCustomerName(''); setCustomerPhone(''); setSentToKitchen(false); setOrderId(null); setEstimatedTime(0); setShowPayment(false); setActivePromo(null); setPlatform('uber'); if (!delivery) generateFolio(); if (delivery) setManualFolio(''); };
+  const clearOrder = () => { setOrderItems([]); setCustomerName(''); setCustomerPhone(''); setSentToKitchen(false); setOrderId(null); setEstimatedTime(0); setShowPayment(false); setActivePromo(null); setPlatform('uber'); setCancelled(true); if (!delivery) generateFolio(); if (delivery) setManualFolio(''); };
 
   const getPlatformLabel = (plat) => { switch(plat) { case 'uber': return '🛵 Uber Eats'; case 'didi': return '🛵 DiDi Food'; case 'rappi': return '🛵 Rappi'; default: return plat; } };
 
@@ -183,7 +186,7 @@ const TakeoutView = ({ delivery = false }) => {
             {delivery && <div className="form-group"><label>Folio de App *</label><input type="text" className="input" placeholder="# de orden de la app..." value={manualFolio} onChange={(e) => setManualFolio(e.target.value)} disabled={sentToKitchen} /></div>}
           </div>
           <div className="order-items">{orderItems.length === 0 ? <div className="empty-order"><p>🛒 Selecciona productos</p></div> : orderItems.map((item, index) => (<div key={index} className="order-item" style={{ opacity: sentToKitchen ? 0.8 : 1, borderLeft: item.isPromo ? '3px solid #e74c3c' : sentToKitchen ? '3px solid #27ae60' : '3px solid #FF6B35' }}><div className="item-info"><span className="item-name">{item.product_name} {item.isPromo ? '🎁' : sentToKitchen ? '✓' : '🆕'}</span><span className="item-price">${item.price?.toFixed(2)} c/u</span></div>{!sentToKitchen ? (<div className="item-controls"><button onClick={() => updateQuantity(item.product_id, -1)}>➖</button><span className="item-qty">{item.quantity}</span><button onClick={() => updateQuantity(item.product_id, 1)}>➕</button><button onClick={() => removeItem(item.product_id)} className="btn-delete">🗑️</button></div>) : (<div className="item-controls"><span className="item-qty">{item.quantity}x</span></div>)}<div className="item-total">${(item.price * item.quantity).toFixed(2)}</div></div>))}</div>
-          <div className="order-footer"><div className="totals">{estimatedTime > 0 && <div className="total-row"><span>⏱️ Tiempo estimado:</span><span style={{ color: '#f39c12', fontWeight: 'bold' }}>{estimatedTime} min</span></div>}{activePromo && <div className="total-row" style={{ color: '#e74c3c' }}><span>🏷️ {activePromo.name}:</span><span>-${(total - finalTotal).toFixed(2)}</span></div>}<div className="total-row grand-total"><span>TOTAL:</span><span>${finalTotal.toFixed(2)}</span></div></div>{!sentToKitchen ? (<button className="btn btn-warning btn-lg btn-full" onClick={handleSendToKitchen} disabled={orderItems.length === 0}>🧾 Enviar a Cocina ({orderItems.length} productos)</button>) : (<div style={{ display: 'flex', gap: 10 }}><button className="btn btn-danger btn-lg" style={{ flex: 1 }} onClick={async () => { if (orderId) await salesService.deleteOrder(orderId); clearOrder(); }}>❌ Cancelar</button><button className="btn btn-success btn-lg" style={{ flex: 1 }} onClick={() => setShowPayment(true)}>💰 Cobrar ${finalTotal.toFixed(2)}</button></div>)}</div></div></div>
+          <div className="order-footer"><div className="totals">{estimatedTime > 0 && <div className="total-row"><span>⏱️ Tiempo estimado:</span><span style={{ color: '#f39c12', fontWeight: 'bold' }}>{estimatedTime} min</span></div>}{activePromo && <div className="total-row" style={{ color: '#e74c3c' }}><span>🏷️ {activePromo.name}:</span><span>-${(total - finalTotal).toFixed(2)}</span></div>}<div className="total-row grand-total"><span>TOTAL:</span><span>${finalTotal.toFixed(2)}</span></div></div>{!sentToKitchen ? (<button className="btn btn-warning btn-lg btn-full" onClick={handleSendToKitchen} disabled={orderItems.length === 0}>🧾 Enviar a Cocina ({orderItems.length} productos)</button>) : (<div style={{ display: 'flex', gap: 10 }}><button className="btn btn-danger btn-lg" style={{ flex: 1 }} onClick={async () => { if (orderId) { await supabase.from('order_items').delete().eq('order_id', orderId); await supabase.from('orders').delete().eq('id', orderId); } clearOrder(); }}>❌ Cancelar</button><button className="btn btn-success btn-lg" style={{ flex: 1 }} onClick={() => setShowPayment(true)}>💰 Cobrar ${finalTotal.toFixed(2)}</button></div>)}</div></div></div>
       {showPayment && <PaymentModal total={finalTotal} onPay={handlePayment} onClose={() => setShowPayment(false)} />}
     </div>
   );
