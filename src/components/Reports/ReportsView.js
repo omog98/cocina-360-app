@@ -113,7 +113,7 @@ const ReportsView = () => {
                   <td><span className="badge badge-primary">{order.type}</span></td>
                   <td><span className="badge badge-success">{order.payment_method}</span></td>
                   <td style={{ fontWeight: 'bold' }}>{formatMoney(order.total)}</td>
-                  <td>{new Date(order.created_at).toLocaleString()}</td>
+                  <td>{new Date(order.created_at).toLocaleString('es-MX', { timeZone: 'America/Monterrey' })</td>
                 </tr>
               ))
             )}
