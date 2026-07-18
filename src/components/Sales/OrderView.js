@@ -83,6 +83,11 @@ const OrderView = ({ table, activeOrder, onClose }) => {
   };
 
   const handleApplyPromo = (promo) => {
+    if (activePromo) {
+      showToast('Ya hay una promoción aplicada. Remuévela primero.', 'error');
+      return;
+    }
+
     if (promo.type === 'free_product' && promo.free_product_id) {
       const freeProduct = products.find(p => p.id === promo.free_product_id);
       if (freeProduct) {
@@ -91,6 +96,7 @@ const OrderView = ({ table, activeOrder, onClose }) => {
           price: 0, quantity: 1, notes: 'Promo: ' + promo.name, status: 'pending',
           isNew: true, sent_to_kitchen: false, isPromo: true
         }]);
+        setActivePromo(promo);
         showToast('🎁 ' + freeProduct.name + ' agregado');
       }
     } else if (promo.type === 'buy_one_get_one' && promo.product_id) {
@@ -100,6 +106,7 @@ const OrderView = ({ table, activeOrder, onClose }) => {
           { product_id: product.id, product_name: product.name, price: product.price, quantity: 1, notes: '', status: 'pending', isNew: true, sent_to_kitchen: false, isPromo: false },
           { product_id: product.id, product_name: '🎁 ' + product.name + ' (2x1)', price: 0, quantity: 1, notes: 'Promo: ' + promo.name, status: 'pending', isNew: true, sent_to_kitchen: false, isPromo: true }
         ]);
+        setActivePromo(promo);
         showToast('🎁 2x1 aplicado');
       }
     } else if (promo.type === 'percentage') {
@@ -114,8 +121,11 @@ const OrderView = ({ table, activeOrder, onClose }) => {
   const total = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   let finalTotal = total;
   if (activePromo) {
-    if (activePromo.type === 'percentage') finalTotal = total - (total * activePromo.value / 100);
-    else if (activePromo.type === 'amount_discount') finalTotal = Math.max(0, total - activePromo.value);
+    if (activePromo.type === 'percentage') {
+      finalTotal = total - (total * activePromo.value / 100);
+    } else if (activePromo.type === 'amount_discount') {
+      finalTotal = Math.max(0, total - activePromo.value);
+    }
   }
 
   const newItems = orderItems.filter(item => item.isNew);
@@ -178,9 +188,11 @@ const OrderView = ({ table, activeOrder, onClose }) => {
       if (!orderId) { showToast('Envía la comanda primero', 'error'); return; }
       const paymentMethods = payments.map(p => p.method).join(' + ');
       await salesService.closeOrder(orderId, { method: paymentMethods, total: finalTotal, tip: tip || 0 });
+      
       if (activePromo) {
         try { await supabase.from('promotions').update({ times_used: (activePromo.times_used || 0) + 1 }).eq('id', activePromo.id); } catch (err) {}
       }
+      
       await salesService.updateTableStatus(table.id, 'dirty');
       showToast('✅ Mesa ' + table.number + ' cobrada - $' + finalTotal.toFixed(2));
       setShowPayment(false);
@@ -232,14 +244,14 @@ const OrderView = ({ table, activeOrder, onClose }) => {
                 </table>
                 <div class="line"></div>
                 <div class="right">Subtotal: $${total.toFixed(2)}</div>
-                ${activePromo ? `<div class="right" style="color:#e74c3c">Desc: -$${(total - finalTotal).toFixed(2)}</div>` : ''}
+                ${activePromo ? `
+                <div class="right" style="color:#e74c3c">🏷️ ${activePromo.name}: -$${(total - finalTotal).toFixed(2)}</div>
+                ` : ''}
                 <div class="total-text right">TOTAL: $${finalTotal.toFixed(2)}</div>
                 <div class="line"></div>
                 <div class="center">${config?.footer_text || '¡GRACIAS POR SU VISITA!'}</div>
                 ${config?.show_qr && config?.qr_url ? `<div style="text-align:center;margin-top:15px"><img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(config.qr_url)}" style="width:120px;height:120px" /></div>` : ''}
-                <script>
-    setTimeout(function() { window.print(); }, 500);
-</script>
+                <script>setTimeout(function(){window.print()},500);</script>
             </body>
             </html>
           `;
@@ -296,7 +308,12 @@ const OrderView = ({ table, activeOrder, onClose }) => {
           <h3>🪑 Mesa {table.number}</h3>
           <div>
             {orderId && <span className="badge badge-warning">🍳 Abierta</span>}
-            {activePromo && <span className="badge" style={{ background: '#e74c3c', color: 'white', marginLeft: 5 }}>🏷️ {activePromo.name}</span>}
+            {activePromo && (
+              <span className="badge" style={{ background: '#e74c3c', color: 'white', marginLeft: 5, cursor: 'pointer' }} 
+                onClick={() => { setActivePromo(null); showToast('Promoción removida'); }} title="Clic para remover">
+                🏷️ {activePromo.name} ✕
+              </span>
+            )}
             <button className="btn btn-secondary btn-sm" onClick={onClose} style={{ marginLeft: 10 }}>✕</button>
           </div>
         </div>
@@ -340,7 +357,8 @@ const OrderView = ({ table, activeOrder, onClose }) => {
           <div className="totals">
             {activePromo && (
               <div className="total-row" style={{ color: '#e74c3c' }}>
-                <span>🏷️ {activePromo.name}:</span><span>-${(total - finalTotal).toFixed(2)}</span>
+                <span>🏷️ {activePromo.name}:</span>
+                <span>-${(total - finalTotal).toFixed(2)}</span>
               </div>
             )}
             <div className="total-row grand-total"><span>TOTAL:</span><span>${finalTotal.toFixed(2)}</span></div>
