@@ -31,23 +31,28 @@ const ProductsView = () => {
 
   const handleSave = async (product, comboItems) => {
     try {
-      let savedProduct;
+      let productId;
+
       if (selectedProduct) {
-        savedProduct = await productService.update(selectedProduct.id, product);
+        await productService.update(selectedProduct.id, product);
+        productId = selectedProduct.id;
       } else {
-        savedProduct = await productService.create(product);
+        const saved = await productService.create(product);
+        productId = saved?.id || saved?.[0]?.id;
       }
 
-      const productId = selectedProduct?.id || savedProduct?.id;
-
-      if (product.is_combo && comboItems && comboItems.length > 0 && productId) {
+      // Guardar combo items
+      if (product.is_combo && productId) {
         await supabase.from('combo_items').delete().eq('combo_id', productId);
-        for (const item of comboItems) {
-          await supabase.from('combo_items').insert([{
-            combo_id: productId,
-            product_id: item.product_id,
-            quantity: item.quantity
-          }]);
+        
+        if (comboItems && comboItems.length > 0) {
+          for (const item of comboItems) {
+            await supabase.from('combo_items').insert([{
+              combo_id: productId,
+              product_id: item.product_id,
+              quantity: item.quantity
+            }]);
+          }
         }
       }
 
@@ -151,7 +156,10 @@ const ProductsView = () => {
                     ${product.is_combo ? product.combo_price?.toFixed(2) : product.price?.toFixed(2)}
                   </td>
                   <td>
-                    {product.delivery_price > 0 ? '$' + product.delivery_price.toFixed(2) : 'Precio base'}
+                    {product.is_combo 
+                      ? (product.combo_delivery_price > 0 ? '$' + product.combo_delivery_price.toFixed(2) : 'Precio base')
+                      : (product.delivery_price > 0 ? '$' + product.delivery_price.toFixed(2) : 'Precio base')
+                    }
                   </td>
                   <td>${product.cost?.toFixed(2) || '0.00'}</td>
                   <td>{product.preparation_time || 10} min</td>
