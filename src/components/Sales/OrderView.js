@@ -184,12 +184,17 @@ const OrderView = ({ table, activeOrder, onClose }) => {
   };
 
   const handleCancelOrder = async () => {
-    if (!window.confirm('¿Cancelar esta mesa?')) return;
+    if (!window.confirm('¿Cancelar esta mesa? Se eliminará todo.')) return;
     try {
       if (orderId) await salesService.deleteOrder(orderId);
       await salesService.updateTableStatus(table.id, 'available');
-      showToast('Mesa cancelada'); onClose();
-    } catch (error) { showToast('Error al cancelar', 'error'); }
+    } catch (error) { }
+    setOrderItems([]);
+    setOrderId(null);
+    setCustomerName('');
+    setActivePromo(null);
+    showToast('Mesa cancelada y limpia');
+    onClose();
   };
 
   const handlePayment = async (payments, tip) => {
@@ -261,6 +266,7 @@ const OrderView = ({ table, activeOrder, onClose }) => {
             <div key={product.id} className="product-card" onClick={() => addToOrder(product)}>
               <div className="product-name">{product.isCombo ? '🎉 ' : ''}{product.name}</div>
               <div className="product-price">${product.isCombo ? (product.combo_price || product.price)?.toFixed(2) : product.price?.toFixed(2)}</div>
+              {product.delivery_price > 0 && <div style={{ fontSize: 9, color: '#f39c12' }}>🛵 ${product.delivery_price?.toFixed(2)}</div>}
             </div>
           ))}
         </div>
