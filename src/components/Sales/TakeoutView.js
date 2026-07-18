@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { productService } from '../../services/productService';
 import { salesService } from '../../services/salesService';
 import { recipeService } from '../../services/recipeService';
+import supabase from '../../services/supabaseClient';
 import PaymentModal from './PaymentModal';
 import { useApp } from '../../context/AppContext';
 
@@ -19,6 +20,10 @@ const TakeoutView = ({ delivery = false }) => {
   const [sentToKitchen, setSentToKitchen] = useState(false);
   const [orderId, setOrderId] = useState(null);
   const [loadingOrder, setLoadingOrder] = useState(true);
+  const [platform, setPlatform] = useState('uber');
+  const [activePromos, setActivePromos] = useState([]);
+  const [promos, setPromos] = useState([]);
+  const [showPromos, setShowPromos] = useState(false);
   const { showToast } = useApp();
 
   useEffect(() => {
@@ -65,6 +70,17 @@ const TakeoutView = ({ delivery = false }) => {
       setProducts(data.filter(p => p.active));
       const cats = [...new Set(data.map(p => p.categories?.name).filter(Boolean))];
       setCategories(cats);
+      
+      const now = new Date().toISOString();
+      const orderType = delivery ? 'delivery' : 'takeout';
+      const { data: promosData } = await supabase
+        .from('promotions')
+        .select('*, product:product_id(name), free_product:free_product_id(name)')
+        .eq('active', true)
+        .or(`applies_to.eq.all,applies_to.eq.${orderType}`)
+        .lte('start_date', now)
+        .or(`end_date.is.null,end_date.gte.${now}`);
+      setPromos(promosData || []);
     } catch (error) {
       showToast('Error al cargar productos', 'error');
     }
@@ -93,7 +109,8 @@ const TakeoutView = ({ delivery = false }) => {
         price: product.price,
         quantity: 1,
         notes: '',
-        preparation_time: product.preparation_time || 5
+        preparation_time: product.preparation_time || 5,
+        isPromo: false
       }]);
     }
     updateTime();
@@ -124,18 +141,42 @@ const TakeoutView = ({ delivery = false }) => {
     setEstimatedTime(totalTime);
   };
 
+  const handleApplyPromo = (promo) => {
+    if (activePromos.find(p => p.id === promo.id)) {
+      showToast('Esta promoción ya fue aplicada', 'error');
+      return;
+    }
+    if (promo.type === 'free_product' && promo.free_product_id) {
+      const freeProduct = products.find(p => p.id === promo.free_product_id);
+      if (freeProduct) {
+        setOrderItems([...orderItems, {
+          product_id: freeProduct.id, product_name: '🎁 ' + freeProduct.name + ' (PROMO)',
+          price: 0, quantity: 1, notes: 'Promo: ' + promo.name, status: 'pending',
+          isNew: true, sent_to_kitchen: false, isPromo: true, preparation_time: freeProduct.preparation_time || 5
+        }]);
+        setActivePromos(prev => [...prev, promo]);
+        showToast('🎁 ' + freeProduct.name + ' agregado');
+      }
+    } else if (promo.type === 'percentage') {
+      setActivePromos(prev => [...prev, promo]);
+      showToast('🏷️ ' + promo.value + '% descuento');
+    } else if (promo.type === 'amount_discount') {
+      setActivePromos(prev => [...prev, promo]);
+      showToast('💵 $' + promo.value + ' descuento');
+    }
+  };
+
   const total = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  let finalTotal = total;
+  activePromos.forEach(promo => {
+    if (promo.type === 'percentage') finalTotal = finalTotal - (finalTotal * promo.value / 100);
+    else if (promo.type === 'amount_discount') finalTotal = Math.max(0, finalTotal - promo.value);
+  });
 
   const handleSendToKitchen = async () => {
     try {
-      if (orderItems.length === 0) {
-        showToast('Agrega productos primero', 'error');
-        return;
-      }
-      if (!customerName.trim()) {
-        showToast('Ingresa el nombre del cliente', 'error');
-        return;
-      }
+      if (orderItems.length === 0) { showToast('Agrega productos primero', 'error'); return; }
+      if (!customerName.trim()) { showToast('Ingresa el nombre del cliente', 'error'); return; }
 
       const finalFolio = delivery ? manualFolio : folio;
 
@@ -145,10 +186,11 @@ const TakeoutView = ({ delivery = false }) => {
         customer_name: customerName,
         customer_phone: customerPhone,
         folio: finalFolio,
+        platform: delivery ? platform : null,
         estimated_time: estimatedTime,
-        subtotal: total,
+        subtotal: finalTotal,
         tax: 0,
-        total: total,
+        total: finalTotal,
         status: 'open',
         payment_status: 'pending'
       });
@@ -172,13 +214,9 @@ const TakeoutView = ({ delivery = false }) => {
 
       setSentToKitchen(true);
 
-      try {
-        await recipeService.discountInventory(newOrderId);
-      } catch (err) {
-        console.error('Error al descontar inventario:', err);
-      }
+      try { await recipeService.discountInventory(newOrderId); } catch (err) { console.error(err); }
 
-      showToast(`🧾 Pedido #${finalFolio} enviado a cocina. ⏱️ ${estimatedTime} min`);
+      showToast('🧾 Pedido #' + finalFolio + ' enviado a cocina. ⏱️ ' + estimatedTime + ' min');
     } catch (error) {
       console.error('Error:', error);
       showToast('Error al enviar a cocina', 'error');
@@ -187,22 +225,17 @@ const TakeoutView = ({ delivery = false }) => {
 
   const handlePayment = async (payments, tip) => {
     try {
-      if (!orderId) {
-        showToast('Primero envía a cocina', 'error');
-        return;
-      }
+      if (!orderId) { showToast('Primero envía a cocina', 'error'); return; }
       const paymentMethods = payments.map(p => p.method).join(' + ');
-      await salesService.closeOrder(orderId, {
-        method: paymentMethods,
-        total: total,
-        tip: tip || 0
-      });
-      showToast(`✅ Pedido cobrado - $${total.toFixed(2)} ${tip > 0 ? '+ Propina: $' + tip.toFixed(2) : ''}`);
+      await salesService.closeOrder(orderId, { method: paymentMethods, total: finalTotal, tip: tip || 0 });
+      
+      for (const promo of activePromos) {
+        try { await supabase.from('promotions').update({ times_used: (promo.times_used || 0) + 1 }).eq('id', promo.id); } catch (err) {}
+      }
+      
+      showToast('✅ Pedido cobrado - $' + finalTotal.toFixed(2));
       clearOrder();
-    } catch (error) {
-      console.error('Error:', error);
-      showToast('Error al cobrar', 'error');
-    }
+    } catch (error) { showToast('Error al cobrar', 'error'); }
   };
 
   const clearOrder = () => {
@@ -213,13 +246,22 @@ const TakeoutView = ({ delivery = false }) => {
     setOrderId(null);
     setEstimatedTime(0);
     setShowPayment(false);
+    setActivePromos([]);
+    setPlatform('uber');
     if (!delivery) generateFolio();
     if (delivery) setManualFolio('');
   };
 
-  const filteredProducts = selectedCategory === 'all'
-    ? products
-    : products.filter(p => p.categories?.name === selectedCategory);
+  const getPlatformLabel = (plat) => {
+    switch(plat) {
+      case 'uber': return '🛵 Uber Eats';
+      case 'didi': return '🛵 DiDi Food';
+      case 'rappi': return '🛵 Rappi';
+      default: return plat;
+    }
+  };
+
+  const filteredProducts = selectedCategory === 'all' ? products : products.filter(p => p.categories?.name === selectedCategory);
 
   if (loadingOrder) {
     return (
@@ -236,7 +278,7 @@ const TakeoutView = ({ delivery = false }) => {
         <div>
           <h2>{delivery ? '🛵 Delivery' : '🛍️ Para Llevar'}</h2>
           <p className="view-subtitle">
-            {delivery ? 'Uber Eats / DiDi Food / Rappi' : `Folio #${folio}`}
+            {delivery ? getPlatformLabel(platform) + ' | Folio manual' : 'Folio #' + folio}
           </p>
         </div>
         <div>
@@ -250,6 +292,24 @@ const TakeoutView = ({ delivery = false }) => {
 
       <div className="order-layout">
         <div className="order-menu">
+          {promos.length > 0 && (
+            <div style={{ marginBottom: 10 }}>
+              <button onClick={() => setShowPromos(!showPromos)}
+                style={{ background: showPromos ? '#FF6B35' : 'var(--medium)', border: 'none', color: 'white', padding: '8px 15px', borderRadius: 8, cursor: 'pointer', fontWeight: 'bold', fontSize: 13 }}>
+                🏷️ Promociones ({promos.length})
+              </button>
+              {showPromos && (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '8px 0' }}>
+                  {promos.map(promo => (
+                    <button key={promo.id} onClick={() => handleApplyPromo(promo)}
+                      style={{ background: '#e74c3c', border: 'none', color: 'white', padding: '6px 12px', borderRadius: 15, cursor: 'pointer', fontSize: 12, fontWeight: 'bold' }}>
+                      🏷️ {promo.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <div className="category-tabs">
             <button className={`cat-tab ${selectedCategory === 'all' ? 'active' : ''}`} onClick={() => setSelectedCategory('all')}>Todos</button>
             {categories.map(cat => (
@@ -258,11 +318,7 @@ const TakeoutView = ({ delivery = false }) => {
           </div>
           <div className="products-grid">
             {filteredProducts.map(product => (
-              <div 
-                key={product.id} 
-                className={`product-card ${sentToKitchen ? 'disabled' : ''}`}
-                onClick={() => addToOrder(product)}
-              >
+              <div key={product.id} className={`product-card ${sentToKitchen ? 'disabled' : ''}`} onClick={() => addToOrder(product)}>
                 <div className="product-name">{product.name}</div>
                 <div className="product-price">${product.price?.toFixed(2)}</div>
                 <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 3 }}>
@@ -275,11 +331,21 @@ const TakeoutView = ({ delivery = false }) => {
 
         <div className="order-panel">
           <div className="order-header">
-            <h3>{delivery ? '🛵 Delivery' : '🛍️ Para Llevar'} {folio && `#${folio}`}</h3>
+            <h3>{delivery ? getPlatformLabel(platform) : '🛍️ Para Llevar'} {folio && '#' + folio}</h3>
             {sentToKitchen && <span className="badge badge-warning">🍳 En cocina</span>}
           </div>
 
           <div style={{ padding: '0 15px' }}>
+            {delivery && (
+              <div className="form-group">
+                <label>Plataforma</label>
+                <select className="input" value={platform} onChange={(e) => setPlatform(e.target.value)} disabled={sentToKitchen}>
+                  <option value="uber">🛵 Uber Eats</option>
+                  <option value="didi">🛵 DiDi Food</option>
+                  <option value="rappi">🛵 Rappi</option>
+                </select>
+              </div>
+            )}
             <div className="form-group">
               <label>Nombre del cliente *</label>
               <input type="text" className="input" placeholder="Nombre..." value={customerName} onChange={(e) => setCustomerName(e.target.value)} disabled={sentToKitchen} />
@@ -301,9 +367,9 @@ const TakeoutView = ({ delivery = false }) => {
               <div className="empty-order"><p>🛒 Selecciona productos</p></div>
             ) : (
               orderItems.map((item, index) => (
-                <div key={index} className="order-item" style={{ opacity: sentToKitchen ? 0.8 : 1, borderLeft: sentToKitchen ? '3px solid #27ae60' : '3px solid #FF6B35' }}>
+                <div key={index} className="order-item" style={{ opacity: sentToKitchen ? 0.8 : 1, borderLeft: item.isPromo ? '3px solid #e74c3c' : sentToKitchen ? '3px solid #27ae60' : '3px solid #FF6B35' }}>
                   <div className="item-info">
-                    <span className="item-name">{item.product_name} {sentToKitchen ? '✓' : '🆕'}</span>
+                    <span className="item-name">{item.product_name} {item.isPromo ? '🎁' : sentToKitchen ? '✓' : '🆕'}</span>
                     <span className="item-price">${item.price?.toFixed(2)} c/u</span>
                   </div>
                   {!sentToKitchen ? (
@@ -332,9 +398,15 @@ const TakeoutView = ({ delivery = false }) => {
                   <span style={{ color: '#f39c12', fontWeight: 'bold' }}>{estimatedTime} min</span>
                 </div>
               )}
+              {activePromos.length > 0 && activePromos.map(promo => (
+                <div key={promo.id} className="total-row" style={{ color: '#e74c3c' }}>
+                  <span>🏷️ {promo.name}:</span>
+                  <span>-${promo.type === 'percentage' ? (total * promo.value / 100).toFixed(2) : promo.value.toFixed(2)}</span>
+                </div>
+              ))}
               <div className="total-row grand-total">
                 <span>TOTAL:</span>
-                <span>${total.toFixed(2)}</span>
+                <span>${finalTotal.toFixed(2)}</span>
               </div>
             </div>
 
@@ -345,7 +417,7 @@ const TakeoutView = ({ delivery = false }) => {
             ) : (
               <div style={{ display: 'flex', gap: 10 }}>
                 <button className="btn btn-danger btn-lg" style={{ flex: 1 }} onClick={clearOrder}>❌ Cancelar</button>
-                <button className="btn btn-success btn-lg" style={{ flex: 1 }} onClick={() => setShowPayment(true)}>💰 Cobrar ${total.toFixed(2)}</button>
+                <button className="btn btn-success btn-lg" style={{ flex: 1 }} onClick={() => setShowPayment(true)}>💰 Cobrar ${finalTotal.toFixed(2)}</button>
               </div>
             )}
           </div>
@@ -353,7 +425,7 @@ const TakeoutView = ({ delivery = false }) => {
       </div>
 
       {showPayment && (
-        <PaymentModal total={total} onPay={handlePayment} onClose={() => setShowPayment(false)} />
+        <PaymentModal total={finalTotal} onPay={handlePayment} onClose={() => setShowPayment(false)} />
       )}
     </div>
   );
