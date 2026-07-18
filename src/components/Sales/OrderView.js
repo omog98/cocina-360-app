@@ -54,8 +54,6 @@ const OrderView = ({ table, activeOrder, onClose }) => {
   };
 
   const addToOrder = async (product) => {
-    console.log('addToOrder llamado:', product.name, 'is_combo:', product.is_combo, 'id:', product.id);
-    
     const existing = orderItems.find(item => item.product_id === product.id && !item.isComboItem && item.isNew);
     if (existing) {
       setOrderItems(orderItems.map(item =>
@@ -73,33 +71,21 @@ const OrderView = ({ table, activeOrder, onClose }) => {
     }];
 
     if (product.is_combo) {
-      console.log('Buscando componentes para combo:', product.id);
-      const { data: items, error } = await supabase
+      const { data: items } = await supabase
         .from('combo_items')
         .select('*, products:product_id(name)')
         .eq('combo_id', product.id);
-      
-      console.log('Componentes encontrados:', items, 'Error:', error);
       
       if (items && items.length > 0) {
         for (const item of items) {
           newItems.push({
             product_id: item.product_id,
             product_name: '  └ ' + (item.products?.name || 'Producto'),
-            price: 0,
-            quantity: item.quantity || 1,
-            notes: '',
-            status: 'pending',
-            isNew: true,
-            sent_to_kitchen: false,
-            isPromo: false,
-            isCombo: false,
-            isComboItem: true,
-            parentComboId: product.id
+            price: 0, quantity: item.quantity || 1, notes: '', status: 'pending',
+            isNew: true, sent_to_kitchen: false, isPromo: false,
+            isCombo: false, isComboItem: true, parentComboId: product.id
           });
         }
-      } else {
-        console.log('NO se encontraron componentes para este combo');
       }
     }
     
@@ -207,9 +193,9 @@ const OrderView = ({ table, activeOrder, onClose }) => {
       }
       setOrderItems([...orderItems]);
       const idToDiscount = orderId || newOrderId;
-      if (idToDiscount) { try { await recipeService.discountInventory(idToDiscount); } catch (err) { console.error(err); } }
+      if (idToDiscount) { try { await recipeService.discountInventory(idToDiscount); } catch (err) { } }
       showToast('🧾 ' + newItems.length + ' producto(s) enviado(s) a cocina');
-    } catch (error) { console.error(error); showToast('Error al enviar', 'error'); }
+    } catch (error) { showToast('Error al enviar', 'error'); }
   };
 
   const handleCancelOrder = async () => {
@@ -275,7 +261,7 @@ const OrderView = ({ table, activeOrder, onClose }) => {
             </body></html>`;
           const ticketWindow = window.open('', 'Ticket', 'width=300,height=600');
           ticketWindow.document.write(ticketHTML);
-        } catch (err) { console.error(err); }
+        } catch (err) { }
       }, 300);
       onClose();
     } catch (error) { showToast('Error al cobrar', 'error'); }
@@ -298,7 +284,7 @@ const OrderView = ({ table, activeOrder, onClose }) => {
         </div>
         <div className="products-grid">
           {filteredProducts.map(product => (
-            <div key={product.id} className="product-card" onClick={() => { console.log('Click en producto:', product.name); addToOrder(product); }}>
+            <div key={product.id} className="product-card" onClick={() => addToOrder(product)}>
               <div className="product-name">{product.is_combo ? '🎉 ' : ''}{product.name}</div>
               <div className="product-price">${product.is_combo ? (product.combo_price || product.price)?.toFixed(2) : product.price?.toFixed(2)}</div>
             </div>
