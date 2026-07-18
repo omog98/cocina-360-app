@@ -88,6 +88,15 @@ const OrderView = ({ table, activeOrder, onClose }) => {
       return;
     }
 
+    // Si la promo tiene producto requerido, verificar que esté en la orden
+    if (promo.product_id) {
+      const hasProduct = orderItems.find(item => item.product_id === promo.product_id);
+      if (!hasProduct) {
+        showToast('Necesitas agregar: ' + (promo.product?.name || 'el producto requerido') + ' primero', 'error');
+        return;
+      }
+    }
+
     if (promo.type === 'free_product' && promo.free_product_id) {
       const freeProduct = products.find(p => p.id === promo.free_product_id);
       if (freeProduct) {
