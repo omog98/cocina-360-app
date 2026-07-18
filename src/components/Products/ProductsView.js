@@ -12,10 +12,11 @@ const ProductsView = () => {
   const [search, setSearch] = useState('');
   const { showToast } = useApp();
 
- useEffect(() => {
+  useEffect(() => {
     loadProducts();
     // eslint-disable-next-line
-}, []);
+  }, []);
+
   const loadProducts = async () => {
     try {
       setLoading(true);
@@ -28,7 +29,7 @@ const ProductsView = () => {
     }
   };
 
-  const handleSave = async (product, comboItems) => {
+  const handleSave = async (product, comboItems, prices) => {
     try {
       let savedProduct;
       if (selectedProduct) {
@@ -39,7 +40,31 @@ const ProductsView = () => {
 
       const productId = selectedProduct?.id || savedProduct?.id;
 
-      // Si es combo, guardar items
+      // Guardar precios por canal
+      if (productId && prices) {
+        for (const channel of ['dine_in', 'takeout', 'delivery']) {
+          if (prices[channel] > 0) {
+            const { data: existing } = await supabase
+              .from('product_prices')
+              .select('id')
+              .eq('product_id', productId)
+              .eq('channel', channel)
+              .single();
+
+            if (existing) {
+              await supabase.from('product_prices').update({ price: prices[channel] }).eq('id', existing.id);
+            } else {
+              await supabase.from('product_prices').insert([{
+                product_id: productId,
+                channel: channel,
+                price: prices[channel]
+              }]);
+            }
+          }
+        }
+      }
+
+      // Guardar combo items
       if (product.is_combo && comboItems && comboItems.length > 0 && productId) {
         await supabase.from('combo_items').delete().eq('combo_id', productId);
         for (const item of comboItems) {
@@ -118,7 +143,10 @@ const ProductsView = () => {
               <th>Nombre</th>
               <th>SKU</th>
               <th>Categoría</th>
-              <th>Precio</th>
+              <th>Precio Base</th>
+              <th>Comedor</th>
+              <th>Llevar</th>
+              <th>Delivery</th>
               <th>Costo</th>
               <th>Tiempo</th>
               <th>Estado</th>
@@ -128,7 +156,7 @@ const ProductsView = () => {
           <tbody>
             {filteredProducts.length === 0 ? (
               <tr>
-                <td colSpan="8" className="empty-table">No se encontraron productos</td>
+                <td colSpan="11" className="empty-table">No se encontraron productos</td>
               </tr>
             ) : (
               filteredProducts.map(product => (
@@ -149,6 +177,9 @@ const ProductsView = () => {
                   <td style={{ fontWeight: 'bold' }}>
                     ${product.is_combo ? product.combo_price?.toFixed(2) : product.price?.toFixed(2)}
                   </td>
+                  <td>{product.prices?.dine_in ? '$' + product.prices.dine_in.toFixed(2) : '-'}</td>
+                  <td>{product.prices?.takeout ? '$' + product.prices.takeout.toFixed(2) : '-'}</td>
+                  <td>{product.prices?.delivery ? '$' + product.prices.delivery.toFixed(2) : '-'}</td>
                   <td>${product.cost?.toFixed(2)}</td>
                   <td>{product.preparation_time || 10} min</td>
                   <td>
@@ -158,23 +189,8 @@ const ProductsView = () => {
                   </td>
                   <td>
                     <div className="action-buttons">
-                      <button 
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => {
-                          setSelectedProduct(product);
-                          setModalOpen(true);
-                        }}
-                        title="Editar"
-                      >
-                        ✏️
-                      </button>
-                      <button 
-                        className="btn btn-danger btn-sm"
-                        onClick={() => handleDelete(product.id)}
-                        title="Desactivar"
-                      >
-                        🗑️
-                      </button>
+                      <button className="btn btn-secondary btn-sm" onClick={() => { setSelectedProduct(product); setModalOpen(true); }} title="Editar">✏️</button>
+                      <button className="btn btn-danger btn-sm" onClick={() => handleDelete(product.id)} title="Desactivar">🗑️</button>
                     </div>
                   </td>
                 </tr>
@@ -188,10 +204,7 @@ const ProductsView = () => {
         <ProductModal
           product={selectedProduct}
           onSave={handleSave}
-          onClose={() => {
-            setModalOpen(false);
-            setSelectedProduct(null);
-          }}
+          onClose={() => { setModalOpen(false); setSelectedProduct(null); }}
         />
       )}
     </div>
