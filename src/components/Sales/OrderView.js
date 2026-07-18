@@ -54,44 +54,52 @@ const OrderView = ({ table, activeOrder, onClose }) => {
   };
 
   const addToOrder = async (product) => {
-    const existing = orderItems.find(item => item.product_id === product.id && item.isNew);
+    const existing = orderItems.find(item => item.product_id === product.id && !item.isComboItem && item.isNew);
     if (existing) {
       setOrderItems(orderItems.map(item =>
-        item.product_id === product.id && item.isNew ? { ...item, quantity: item.quantity + 1 } : item
+        item.product_id === product.id && !item.isComboItem && item.isNew ? { ...item, quantity: item.quantity + 1 } : item
       ));
     } else {
-      // Agregar el combo/producto principal
-      const price = product.is_combo ? product.combo_price : product.price;
-      setOrderItems(prev => [...prev, {
-        product_id: product.id, product_name: product.name, price: price,
-        quantity: 1, notes: '', status: 'pending',
-        isNew: true, sent_to_kitchen: false, isPromo: false, isCombo: product.is_combo
-      }]);
+      const price = product.is_combo ? (product.combo_price || product.price) : product.price;
+      
+      // Agregar combo principal
+      const newItems = [...orderItems, {
+        product_id: product.id, product_name: (product.is_combo ? '🎉 ' : '') + product.name,
+        price: price, quantity: 1, notes: '', status: 'pending',
+        isNew: true, sent_to_kitchen: false, isPromo: false, isCombo: product.is_combo, isComboItem: false
+      }];
 
-      // Si es combo, agregar sus componentes a $0
+      // Si es combo, cargar sus componentes
       if (product.is_combo) {
-        const { data: items } = await supabase
+        console.log('Cargando componentes del combo:', product.id, product.name);
+        const { data: items, error } = await supabase
           .from('combo_items')
           .select('*, products:product_id(name)')
           .eq('combo_id', product.id);
         
+        console.log('Componentes encontrados:', items, error);
+        
         if (items && items.length > 0) {
           for (const item of items) {
-            setOrderItems(prev => [...prev, {
+            newItems.push({
               product_id: item.product_id,
               product_name: '  └ ' + item.products?.name,
               price: 0,
-              quantity: item.quantity,
+              quantity: item.quantity || 1,
               notes: '',
               status: 'pending',
               isNew: true,
               sent_to_kitchen: false,
               isPromo: false,
-              isComboItem: true
-            }]);
+              isCombo: false,
+              isComboItem: true,
+              parentComboId: product.id
+            });
           }
         }
       }
+      
+      setOrderItems(newItems);
     }
   };
 
@@ -106,7 +114,15 @@ const OrderView = ({ table, activeOrder, onClose }) => {
   };
 
   const removeItem = (productId) => {
-    setOrderItems(orderItems.filter(item => !(item.product_id === productId && item.isNew && !item.isComboItem)));
+    // Si es un combo, eliminar también sus componentes
+    const itemToRemove = orderItems.find(item => item.product_id === productId && item.isNew && !item.isComboItem);
+    if (itemToRemove && itemToRemove.isCombo) {
+      setOrderItems(orderItems.filter(item => 
+        !(item.isComboItem && item.parentComboId === productId) && item.product_id !== productId
+      ));
+    } else {
+      setOrderItems(orderItems.filter(item => !(item.product_id === productId && item.isNew && !item.isComboItem)));
+    }
   };
 
   const handleApplyPromo = (promo) => {
@@ -121,7 +137,7 @@ const OrderView = ({ table, activeOrder, onClose }) => {
         setOrderItems(prev => [...prev, {
           product_id: freeProduct.id, product_name: '🎁 ' + freeProduct.name + ' (PROMO)',
           price: 0, quantity: 1, notes: 'Promo: ' + promo.name, status: 'pending',
-          isNew: true, sent_to_kitchen: false, isPromo: true
+          isNew: true, sent_to_kitchen: false, isPromo: true, isCombo: false, isComboItem: false
         }]);
         setActivePromo(promo);
         showToast('🎁 ' + freeProduct.name + ' agregado');
@@ -130,8 +146,8 @@ const OrderView = ({ table, activeOrder, onClose }) => {
       const product = products.find(p => p.id === promo.product_id);
       if (product) {
         setOrderItems(prev => [...prev,
-          { product_id: product.id, product_name: product.name, price: product.price, quantity: 1, notes: '', status: 'pending', isNew: true, sent_to_kitchen: false, isPromo: false },
-          { product_id: product.id, product_name: '🎁 ' + product.name + ' (2x1)', price: 0, quantity: 1, notes: 'Promo: ' + promo.name, status: 'pending', isNew: true, sent_to_kitchen: false, isPromo: true }
+          { product_id: product.id, product_name: product.name, price: product.price, quantity: 1, notes: '', status: 'pending', isNew: true, sent_to_kitchen: false, isPromo: false, isCombo: false, isComboItem: false },
+          { product_id: product.id, product_name: '🎁 ' + product.name + ' (2x1)', price: 0, quantity: 1, notes: 'Promo: ' + promo.name, status: 'pending', isNew: true, sent_to_kitchen: false, isPromo: true, isCombo: false, isComboItem: false }
         ]);
         setActivePromo(promo);
         showToast('🎁 2x1 aplicado');
@@ -282,7 +298,7 @@ const OrderView = ({ table, activeOrder, onClose }) => {
           {filteredProducts.map(product => (
             <div key={product.id} className="product-card" onClick={() => addToOrder(product)}>
               <div className="product-name">{product.is_combo ? '🎉 ' : ''}{product.name}</div>
-              <div className="product-price">${product.is_combo ? product.combo_price?.toFixed(2) : product.price?.toFixed(2)}</div>
+              <div className="product-price">${product.is_combo ? (product.combo_price || product.price)?.toFixed(2) : product.price?.toFixed(2)}</div>
             </div>
           ))}
         </div>
