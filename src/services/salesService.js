@@ -28,15 +28,22 @@ async deleteOrder(orderId) {
 },
 
 async getNextFolio() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('orders')
       .select('folio')
       .eq('type', 'takeout')
+      .not('folio', 'is', null)
       .order('created_at', { ascending: false })
       .limit(1);
     
-    const lastFolio = data?.[0]?.folio ? parseInt(data[0].folio) : 0;
-    return String(lastFolio + 1);
+    if (error) return '1';
+    
+    if (data && data.length > 0 && data[0].folio) {
+      const lastNum = parseInt(data[0].folio);
+      if (!isNaN(lastNum)) return String(lastNum + 1);
+    }
+    
+    return '1';
 },
 
   async createOrder(order) {

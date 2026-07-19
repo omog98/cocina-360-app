@@ -27,11 +27,11 @@ const TakeoutView = ({ delivery = false }) => {
   const [cancelled, setCancelled] = useState(false);
   const { showToast } = useApp();
 
-useEffect(() => {
+  useEffect(() => {
     loadProducts();
     loadActiveOrder();
-    // eslint-disable-next-line
-}, []);
+    if (!delivery && !folio) generateFolio();
+  }, []);
 
   const loadActiveOrder = async () => {
     if (cancelled) return;
@@ -71,14 +71,21 @@ useEffect(() => {
     } catch (error) {}
   };
 
-  const generateFolio = async () => { try { const data = await salesService.getNextFolio(); setFolio(String(data || 1)); } catch (error) { setFolio('1'); } };
+  const generateFolio = async () => {
+    try {
+      const newFolio = await salesService.getNextFolio();
+      setFolio(String(newFolio || 1));
+    } catch (error) {
+      setFolio('1');
+    }
+  };
 
   const addToOrder = (product) => {
     if (sentToKitchen) return;
     const finalPrice = product.isCombo ? (delivery && product.combo_delivery_price > 0 ? product.combo_delivery_price : product.combo_price) : (delivery && product.delivery_price > 0 ? product.delivery_price : product.price);
     const existing = orderItems.find(item => item.product_id === product.id && item.isNew);
     if (existing) { setOrderItems(orderItems.map(item => item.product_id === product.id ? { ...item, quantity: item.quantity + 1 } : item)); }
-    else { setOrderItems([...orderItems, { product_id: product.id, product_name: (product.isCombo ? 'COMBO: ' : '') + product.name, price: finalPrice, quantity: 1, notes: '', preparation_time: product.preparation_time || 5, isPromo: false, isCombo: product.isCombo, isNew: true }]); }
+    else { setOrderItems([...orderItems, { product_id: product.id, product_name: product.name, price: finalPrice, quantity: 1, notes: '', preparation_time: product.preparation_time || 5, isPromo: false, isCombo: product.isCombo, isNew: true }]); }
     updateTime();
   };
 
@@ -130,8 +137,7 @@ useEffect(() => {
         const w = window.open('', 'Ticket', 'width=300,height=600');
         w.document.write('<html><head><style>*{font-weight:bold;font-family:Arial;font-size:14px}body{width:280px;margin:10px auto;padding:10px}.center{text-align:center}.line{border-top:2px solid #000;margin:8px 0}.right{text-align:right}table{width:100%}th,td{text-align:left;padding:3px 0}</style></head><body>' +
           (config?.logo_url ? '<div class="center"><img src="' + config.logo_url + '" style="width:180px;margin-bottom:10px"/></div>' : '') +
-          '<div class="center"><h2>' + (config?.business_name || 'COCINA 360') + '</h2>' +
-          (config?.rfc ? '<p>RFC: ' + config.rfc + '</p>' : '') + '</div><div class="line"></div>' +
+          '<div class="center"><h2>' + (config?.business_name || 'COCINA 360') + '</h2>' + (config?.rfc ? '<p>RFC: ' + config.rfc + '</p>' : '') + '</div><div class="line"></div>' +
           '<p>Fecha: ' + new Date().toLocaleString('es-MX', { timeZone: 'America/Monterrey' }) + '</p>' +
           '<p>' + (delivery ? (platform === 'uber' ? 'Uber Eats' : platform === 'didi' ? 'DiDi Food' : 'Rappi') : 'Para Llevar') + ' #' + (delivery ? manualFolio : folio) + '</p>' +
           '<p>Cliente: ' + (customerName || 'N/A') + '</p><div class="line"></div>' +
@@ -155,7 +161,7 @@ useEffect(() => {
 
   return (
     <div className="view">
-      <div className="view-header"><div><h2>{delivery ? 'Delivery' : 'Para Llevar'}</h2><p className="view-subtitle">{delivery ? getPlatformLabel(platform) + ' | Folio manual' : 'Folio #' + folio}</p></div><div>{estimatedTime > 0 && <span className="badge badge-warning">' + estimatedTime + ' min</span>}</div></div>
+      <div className="view-header"><div><h2>{delivery ? 'Delivery' : 'Para Llevar'}</h2><p className="view-subtitle">{delivery ? getPlatformLabel(platform) + ' | Folio manual' : 'Folio #' + folio}</p></div><div>{estimatedTime > 0 && <span className="badge badge-warning">{estimatedTime} min</span>}</div></div>
       <div className="order-layout">
         <div className="order-menu">
           {promos.length > 0 && (<div style={{ marginBottom: 10 }}><button onClick={() => setShowPromos(!showPromos)} style={{ background: showPromos ? '#FF6B35' : 'var(--medium)', border: 'none', color: 'white', padding: '8px 15px', borderRadius: 8, cursor: 'pointer', fontWeight: 'bold', fontSize: 13 }}>Promos ({promos.length})</button>{showPromos && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '8px 0' }}>{promos.map(promo => <button key={promo.id} onClick={() => handleApplyPromo(promo)} style={{ background: '#e74c3c', border: 'none', color: 'white', padding: '6px 12px', borderRadius: 15, cursor: 'pointer', fontSize: 12, fontWeight: 'bold' }}>{promo.name}</button>)}</div>}</div>)}
