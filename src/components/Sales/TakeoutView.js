@@ -31,7 +31,8 @@ const TakeoutView = ({ delivery = false }) => {
     loadProducts();
     loadActiveOrder();
     if (!delivery && !folio) generateFolio();
-  }, []);
+    // eslint-disable-next-line
+}, []);
 
   const loadActiveOrder = async () => {
     if (cancelled) return;
