@@ -10,7 +10,8 @@ const ComboItemsSelector = ({ productId, onChange }) => {
   useEffect(() => {
     loadProducts();
     if (productId) loadExistingItems();
-  }, [productId]);
+    // eslint-disable-next-line
+}, [productId]);
 
   const loadProducts = async () => {
     const { data } = await supabase.from('products').select('*').eq('active', true);
