@@ -72,9 +72,7 @@ const TakeoutView = ({ delivery = false }) => {
     } catch (error) {}
   };
 
-  const generateFolio = async () => {
-    try { const newFolio = await salesService.getNextFolio(); setFolio(String(newFolio || 1)); } catch (error) { setFolio('1'); }
-  };
+  const generateFolio = async () => { try { const newFolio = await salesService.getNextFolio(); setFolio(String(newFolio || 1)); } catch (error) { setFolio('1'); } };
 
   const addToOrder = (product) => {
     if (sentToKitchen) return;
@@ -121,19 +119,31 @@ const TakeoutView = ({ delivery = false }) => {
       if (!orderId) return;
       await salesService.closeOrder(orderId, { method: payments.map(p => p.method).join(' + '), total: finalTotal, tip: tip || 0 });
       showToast('Cobrado: $' + finalTotal.toFixed(2));
+      
       setTimeout(async () => {
         const { data: config } = await supabase.from('ticket_config').select('*').limit(1).single();
         const { data: allItems } = await supabase.from('order_items').select('*').eq('order_id', orderId);
         const ticketItems = allItems || orderItems;
+        
+        const tipo = delivery ? (platform === 'uber' ? 'Uber Eats' : platform === 'didi' ? 'DiDi Food' : 'Rappi') : 'Para Llevar';
+        const folioMostrar = delivery ? manualFolio : folio;
+        
+        let qrHTML = '';
+        if (config?.show_qr && config?.qr_url) {
+          qrHTML = '<div style="text-align:center;margin-top:15px"><img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=' + encodeURIComponent(config.qr_url) + '" style="width:120px;height:120px" /></div>';
+        }
+        
         const w = window.open('', 'Ticket', 'width=300,height=600');
-        w.document.write('<html><head><style>*{font-weight:bold;font-family:Arial;font-size:14px}body{width:280px;margin:10px auto;padding:10px}.center{text-align:center}.line{border-top:2px solid #000;margin:8px 0}.right{text-align:right}table{width:100%}th,td{text-align:left;padding:3px 0}</style></head><body>' +
+        w.document.write(
+          '<html><head><title>Ticket</title>' +
+          '<style>*{font-weight:bold;font-family:Arial;font-size:14px}body{width:280px;margin:10px auto;padding:10px}.center{text-align:center}.line{border-top:2px solid #000;margin:8px 0}.right{text-align:right}table{width:100%}th,td{text-align:left;padding:3px 0}</style></head><body>' +
           (config?.logo_url ? '<div class="center"><img src="' + config.logo_url + '" style="width:180px;margin-bottom:10px"/></div>' : '') +
           '<div class="center"><h2>' + (config?.business_name || 'COCINA 360') + '</h2>' +
           (config?.business_address ? '<p>' + config.business_address + '</p>' : '') +
           (config?.business_phone ? '<p>Tel: ' + config.business_phone + '</p>' : '') +
           (config?.rfc ? '<p>RFC: ' + config.rfc + '</p>' : '') + '</div><div class="line"></div>' +
           '<p>Fecha: ' + new Date().toLocaleString('es-MX', { timeZone: 'America/Monterrey' }) + '</p>' +
-          '<p>' + (delivery ? (platform === 'uber' ? 'Uber Eats' : platform === 'didi' ? 'DiDi Food' : 'Rappi') : 'Para Llevar') + ' #' + (delivery ? manualFolio : folio) + '</p>' +
+          '<p>' + tipo + ' #' + folioMostrar + '</p>' +
           '<p>Cliente: ' + (customerName || 'N/A') + '</p>' +
           (customerPhone ? '<p>Tel Cliente: ' + customerPhone + '</p>' : '') +
           '<div class="line"></div>' +
@@ -143,9 +153,11 @@ const TakeoutView = ({ delivery = false }) => {
           (activePromo ? '<p class="right" style="color:red">' + activePromo.name + ': -$' + (total - finalTotal).toFixed(2) + '</p>' : '') +
           '<p class="right" style="font-size:18px">TOTAL: $' + finalTotal.toFixed(2) + '</p><div class="line"></div>' +
           '<p class="center">' + (config?.footer_text || 'Gracias!') + '</p>' +
-          (config?.show_qr && config?.qr_url ? '<div style="text-align:center;margin-top:10px"><img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=' + encodeURIComponent(config.qr_url) + '" style="width:100px;height:100px"/></div>' : '') +
-          '<script>setTimeout(function(){window.print()},500);</script></body></html>');
+          qrHTML +
+          '<script>setTimeout(function(){window.print()},500);</script></body></html>'
+        );
       }, 300);
+      
       clearOrder();
     } catch (error) { showToast('Error al cobrar', 'error'); }
   };
