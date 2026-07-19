@@ -11,7 +11,7 @@ const Header = ({ setCurrentView, toggleSidebar, user, onLogout }) => {
     { key: 'delivery', label: 'Delivery', icon: '🛵', perm: 'delivery' },
     { key: 'inventory', label: 'Inventario', icon: '📦', perm: 'inventory' },
     { key: 'kitchen', label: 'Cocina', icon: '🍳', perm: 'kitchen' },
-    { key: 'dashboard', label: 'Reportes', icon: '📊', perm: 'dashboard' },
+    { key: 'dashboard', label: 'Reportes', icon: '📊' },
   ];
 
   const mainOptions = role === 'admin' 
