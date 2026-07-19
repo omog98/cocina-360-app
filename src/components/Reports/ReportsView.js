@@ -10,7 +10,8 @@ const ReportsView = () => {
 
   useEffect(() => {
     loadOrders();
-  }, [filter]);
+    // eslint-disable-next-line
+}, [filter]);
 
   const loadOrders = async () => {
     setLoading(true);
