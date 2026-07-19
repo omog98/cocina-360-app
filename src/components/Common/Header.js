@@ -11,12 +11,10 @@ const Header = ({ setCurrentView, toggleSidebar, user, onLogout }) => {
     { key: 'delivery', label: 'Delivery', icon: '🛵', perm: 'delivery' },
     { key: 'inventory', label: 'Inventario', icon: '📦', perm: 'inventory' },
     { key: 'kitchen', label: 'Cocina', icon: '🍳', perm: 'kitchen' },
-    { key: 'dashboard', label: 'Reportes', icon: '📊' },
+    { key: 'dashboard', label: 'Dashboard', icon: '📊', perm: 'dashboard' },
   ];
 
-  const mainOptions = role === 'admin' 
-    ? allOptions 
-    : allOptions.filter(opt => permissions[opt.perm]);
+  const mainOptions = role === 'admin' ? allOptions : allOptions.filter(opt => permissions[opt.perm]);
 
   return (
     <header className="header">
