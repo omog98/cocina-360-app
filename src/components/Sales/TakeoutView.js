@@ -73,19 +73,12 @@ const TakeoutView = ({ delivery = false }) => {
   };
 
   const generateFolio = async () => {
-    try {
-      const newFolio = await salesService.getNextFolio();
-      setFolio(String(newFolio || 1));
-    } catch (error) {
-      setFolio('1');
-    }
+    try { const newFolio = await salesService.getNextFolio(); setFolio(String(newFolio || 1)); } catch (error) { setFolio('1'); }
   };
 
   const addToOrder = (product) => {
     if (sentToKitchen) return;
-    const finalPrice = product.isCombo 
-      ? (delivery && product.combo_delivery_price > 0 ? product.combo_delivery_price : (product.combo_price || product.price))
-      : (delivery && product.delivery_price > 0 ? product.delivery_price : product.price);
+    const finalPrice = product.isCombo ? (delivery && product.combo_delivery_price > 0 ? product.combo_delivery_price : (product.combo_price || product.price)) : (delivery && product.delivery_price > 0 ? product.delivery_price : product.price);
     const existing = orderItems.find(item => item.product_id === product.id && item.isNew);
     if (existing) { setOrderItems(orderItems.map(item => item.product_id === product.id ? { ...item, quantity: item.quantity + 1 } : item)); }
     else { setOrderItems([...orderItems, { product_id: product.id, product_name: product.name, price: finalPrice, quantity: 1, notes: '', preparation_time: product.preparation_time || 5, isPromo: false, isCombo: product.isCombo, isNew: true }]); }
@@ -99,10 +92,8 @@ const TakeoutView = ({ delivery = false }) => {
   const handleApplyPromo = (promo) => {
     if (activePromo) { showToast('Ya hay una promocion aplicada', 'error'); return; }
     if (promo.product_id && !orderItems.find(item => item.product_id === promo.product_id)) { showToast('Agrega el producto requerido primero', 'error'); return; }
-    if (promo.type === 'free_product' && promo.free_product_id) {
-      const freeProduct = products.find(p => p.id === promo.free_product_id);
-      if (freeProduct) { setOrderItems(prev => [...prev, { product_id: freeProduct.id, product_name: '🎁 ' + freeProduct.name, price: 0, quantity: 1, notes: '', preparation_time: freeProduct.preparation_time || 5, isPromo: true, isNew: true }]); setActivePromo(promo); }
-    } else { setActivePromo(promo); }
+    if (promo.type === 'free_product' && promo.free_product_id) { const freeProduct = products.find(p => p.id === promo.free_product_id); if (freeProduct) { setOrderItems(prev => [...prev, { product_id: freeProduct.id, product_name: '🎁 ' + freeProduct.name, price: 0, quantity: 1, notes: '', preparation_time: freeProduct.preparation_time || 5, isPromo: true, isNew: true }]); setActivePromo(promo); } }
+    else { setActivePromo(promo); }
   };
 
   const total = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -118,10 +109,7 @@ const TakeoutView = ({ delivery = false }) => {
       const newOrderId = order.id; setOrderId(newOrderId);
       for (const item of orderItems) {
         await salesService.addOrderItem({ order_id: newOrderId, product_id: item.product_id, product_name: item.product_name, quantity: item.quantity, price: item.price, notes: item.notes || '', status: 'pending', sent_to_kitchen: true, preparation_time: item.preparation_time || 5 });
-        if (item.isCombo) {
-          const { data: comboItems } = await supabase.from('combo_items').select('*, products:product_id(name)').eq('combo_id', item.product_id);
-          if (comboItems) { for (const ci of comboItems) { await salesService.addOrderItem({ order_id: newOrderId, product_id: ci.product_id, product_name: '  - ' + (ci.products?.name || ''), quantity: ci.quantity || 1, price: 0, notes: '', status: 'pending', sent_to_kitchen: true }); } }
-        }
+        if (item.isCombo) { const { data: comboItems } = await supabase.from('combo_items').select('*, products:product_id(name)').eq('combo_id', item.product_id); if (comboItems) { for (const ci of comboItems) { await salesService.addOrderItem({ order_id: newOrderId, product_id: ci.product_id, product_name: '  - ' + (ci.products?.name || ''), quantity: ci.quantity || 1, price: 0, notes: '', status: 'pending', sent_to_kitchen: true }); } } }
       }
       setSentToKitchen(true); setCancelled(false);
       try { await recipeService.discountInventory(newOrderId); } catch (err) {}
@@ -140,16 +128,22 @@ const TakeoutView = ({ delivery = false }) => {
         const w = window.open('', 'Ticket', 'width=300,height=600');
         w.document.write('<html><head><style>*{font-weight:bold;font-family:Arial;font-size:14px}body{width:280px;margin:10px auto;padding:10px}.center{text-align:center}.line{border-top:2px solid #000;margin:8px 0}.right{text-align:right}table{width:100%}th,td{text-align:left;padding:3px 0}</style></head><body>' +
           (config?.logo_url ? '<div class="center"><img src="' + config.logo_url + '" style="width:180px;margin-bottom:10px"/></div>' : '') +
-          '<div class="center"><h2>' + (config?.business_name || 'COCINA 360') + '</h2>' + (config?.rfc ? '<p>RFC: ' + config.rfc + '</p>' : '') + '</div><div class="line"></div>' +
+          '<div class="center"><h2>' + (config?.business_name || 'COCINA 360') + '</h2>' +
+          (config?.business_address ? '<p>' + config.business_address + '</p>' : '') +
+          (config?.business_phone ? '<p>Tel: ' + config.business_phone + '</p>' : '') +
+          (config?.rfc ? '<p>RFC: ' + config.rfc + '</p>' : '') + '</div><div class="line"></div>' +
           '<p>Fecha: ' + new Date().toLocaleString('es-MX', { timeZone: 'America/Monterrey' }) + '</p>' +
           '<p>' + (delivery ? (platform === 'uber' ? 'Uber Eats' : platform === 'didi' ? 'DiDi Food' : 'Rappi') : 'Para Llevar') + ' #' + (delivery ? manualFolio : folio) + '</p>' +
-          '<p>Cliente: ' + (customerName || 'N/A') + '</p><div class="line"></div>' +
+          '<p>Cliente: ' + (customerName || 'N/A') + '</p>' +
+          (customerPhone ? '<p>Tel Cliente: ' + customerPhone + '</p>' : '') +
+          '<div class="line"></div>' +
           '<table><tr style="border-bottom:2px solid #000"><th>Cant</th><th>Producto</th><th class="right">Total</th></tr>' +
           ticketItems.map(i => '<tr><td>' + i.quantity + '</td><td>' + i.product_name + '</td><td class="right">$' + (i.price * i.quantity).toFixed(2) + '</td></tr>').join('') +
           '</table><div class="line"></div><p class="right">Subtotal: $' + total.toFixed(2) + '</p>' +
           (activePromo ? '<p class="right" style="color:red">' + activePromo.name + ': -$' + (total - finalTotal).toFixed(2) + '</p>' : '') +
           '<p class="right" style="font-size:18px">TOTAL: $' + finalTotal.toFixed(2) + '</p><div class="line"></div>' +
           '<p class="center">' + (config?.footer_text || 'Gracias!') + '</p>' +
+          (config?.show_qr && config?.qr_url ? '<div style="text-align:center;margin-top:10px"><img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=' + encodeURIComponent(config.qr_url) + '" style="width:100px;height:100px"/></div>' : '') +
           '<script>setTimeout(function(){window.print()},500);</script></body></html>');
       }, 300);
       clearOrder();
@@ -158,12 +152,8 @@ const TakeoutView = ({ delivery = false }) => {
 
   const clearOrder = () => { setOrderItems([]); setCustomerName(''); setCustomerPhone(''); setSentToKitchen(false); setOrderId(null); setEstimatedTime(0); setShowPayment(false); setActivePromo(null); setCancelled(true); if (!delivery) generateFolio(); if (delivery) setManualFolio(''); };
   const getPlatformLabel = (p) => { return p === 'uber' ? 'Uber Eats' : p === 'didi' ? 'DiDi Food' : 'Rappi'; };
-
   const getDisplayPrice = (product) => {
-    if (product.isCombo) {
-      if (delivery && product.combo_delivery_price > 0) return product.combo_delivery_price;
-      return product.combo_price || product.price;
-    }
+    if (product.isCombo) { if (delivery && product.combo_delivery_price > 0) return product.combo_delivery_price; return product.combo_price || product.price; }
     if (delivery && product.delivery_price > 0) return product.delivery_price;
     return product.price;
   };
@@ -178,18 +168,7 @@ const TakeoutView = ({ delivery = false }) => {
         <div className="order-menu">
           {promos.length > 0 && (<div style={{ marginBottom: 10 }}><button onClick={() => setShowPromos(!showPromos)} style={{ background: showPromos ? '#FF6B35' : 'var(--medium)', border: 'none', color: 'white', padding: '8px 15px', borderRadius: 8, cursor: 'pointer', fontWeight: 'bold', fontSize: 13 }}>Promos ({promos.length})</button>{showPromos && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '8px 0' }}>{promos.map(promo => <button key={promo.id} onClick={() => handleApplyPromo(promo)} style={{ background: '#e74c3c', border: 'none', color: 'white', padding: '6px 12px', borderRadius: 15, cursor: 'pointer', fontSize: 12, fontWeight: 'bold' }}>{promo.name}</button>)}</div>}</div>)}
           <div className="category-tabs"><button className={`cat-tab ${selectedCategory === 'all' ? 'active' : ''}`} onClick={() => setSelectedCategory('all')}>Todos</button>{categories.map(cat => <button key={cat} className={`cat-tab ${selectedCategory === cat ? 'active' : ''}`} onClick={() => setSelectedCategory(cat)}>{cat}</button>)}</div>
-          <div className="products-grid">
-            {filteredProducts.map(product => (
-              <div key={product.id} className={`product-card ${sentToKitchen ? 'disabled' : ''}`} onClick={() => addToOrder(product)}>
-                <div className="product-name">{product.isCombo ? '🎉 ' : ''}{product.name}</div>
-                <div className="product-price">${getDisplayPrice(product)?.toFixed(2)}</div>
-                {delivery && product.delivery_price > 0 && !product.isCombo && (
-                  <div style={{ fontSize: 9, color: '#f39c12' }}>Normal: ${product.price?.toFixed(2)}</div>
-                )}
-                <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 3 }}>⏱️ {product.preparation_time || 5} min</div>
-              </div>
-            ))}
-          </div>
+          <div className="products-grid">{filteredProducts.map(product => (<div key={product.id} className={`product-card ${sentToKitchen ? 'disabled' : ''}`} onClick={() => addToOrder(product)}><div className="product-name">{product.isCombo ? '🎉 ' : ''}{product.name}</div><div className="product-price">${getDisplayPrice(product)?.toFixed(2)}</div>{delivery && product.delivery_price > 0 && !product.isCombo && (<div style={{ fontSize: 9, color: '#f39c12' }}>Normal: ${product.price?.toFixed(2)}</div>)}<div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 3 }}>⏱️ {product.preparation_time || 5} min</div></div>))}</div>
         </div>
         <div className="order-panel">
           <div className="order-header"><h3>{delivery ? getPlatformLabel(platform) : 'Para Llevar'} {folio && '#' + folio}</h3>{sentToKitchen && <span className="badge badge-warning">En cocina</span>}</div>
