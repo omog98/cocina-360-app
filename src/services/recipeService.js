@@ -80,20 +80,22 @@ export const recipeService = {
             inventory_id: recipe.inventory_id,
             type: 'salida',
             quantity: totalToDiscount,
-            reason: `Venta: ${item.quantity}x ${item.product_name}`
+            reason: 'Venta: ' + item.quantity + 'x ' + item.product_name
           }]);
       }
     }
   },
 
   async getLowStock() {
-    const { data, error } = await supabase
+    const { data: allInventory } = await supabase
       .from('inventory')
       .select('*')
-      .eq('active', true)
-      .not('min_stock', 'is', null)
-      .filter('quantity', '<=', supabase.raw('min_stock'));
-    if (error) throw error;
-    return data;
+      .eq('active', true);
+
+    if (!allInventory) return [];
+
+    return allInventory.filter(item => {
+      return item.quantity <= (item.min_stock || 5);
+    });
   }
 };
