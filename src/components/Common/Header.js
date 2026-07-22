@@ -9,7 +9,7 @@ const Header = ({ setCurrentView, toggleSidebar, user, onLogout }) => {
     { key: 'tables', label: 'Comedor', icon: '🪑', perm: 'tables' },
     { key: 'takeout', label: 'Para Llevar', icon: '🛍️', perm: 'takeout' },
     { key: 'delivery', label: 'Delivery', icon: '🛵', perm: 'delivery' },
-    { key: 'inventory', label: 'Inventario', icon: '📦', perm: 'inventory' },
+    { key: 'inventory', label: 'Inventario', icon: '📦', perm: 'inventory_view' },
     { key: 'kitchen', label: 'Cocina', icon: '🍳', perm: 'kitchen' },
     { key: 'dashboard', label: 'Dashboard', icon: '📊', perm: 'dashboard' },
   ];
